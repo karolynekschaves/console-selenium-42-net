@@ -18,6 +18,8 @@ public sealed class BuscaDesafioTest
         options.AddArgument("--no-sandbox");
         options.AddArgument("--disable-dev-shm-usage");
         options.AddArgument("--window-size=1920,1080");
+        // User-agent real necessário: sem ele o DuckDuckGo omite os resultados orgânicos no modo headless
+        options.AddArgument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36");
 
         _driver = new ChromeDriver(options);
         _wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(15));
@@ -72,30 +74,21 @@ public sealed class BuscaDesafioTest
         campoBusca.SendKeys("C# unit testing");
 
         // 3. Aguardar a listagem de sugestões aparecer no DOM
-        var seletoresSugestoes = new[]
-        {
-            ".search-suggestions-list li",
-            ".sbox-suggestions li",
-            "[role='option']"
-        };
-
+        // Seletor confirmado via inspeção: [role='option'] com id=suggestion-N
         IReadOnlyCollection<IWebElement>? sugestoes = null;
         _wait.Until(d =>
         {
-            foreach (var seletor in seletoresSugestoes)
+            var elementos = d.FindElements(By.CssSelector("[role='option']"));
+            if (elementos.Count >= 3)
             {
-                var elementos = d.FindElements(By.CssSelector(seletor));
-                if (elementos.Count >= 3)
-                {
-                    sugestoes = elementos;
-                    return true;
-                }
+                sugestoes = elementos;
+                return true;
             }
             return false;
         });
 
-        Assert.IsNotNull(sugestoes, "Nenhuma lista de sugestões encontrada com os seletores fornecidos.");
-        Assert.IsGreaterThanOrEqualTo(sugestoes!.Count, 3, $"Esperado ao menos 3 sugestões, encontrado: {sugestoes.Count}");
+        Assert.IsNotNull(sugestoes, "Nenhuma lista de sugestões encontrada com o seletor [role='option'].");
+        Assert.IsGreaterThanOrEqualTo(3, sugestoes!.Count, $"Esperado ao menos 3 sugestões, encontrado: {sugestoes.Count}");
 
         // 4. Clicar na terceira opção (índice 2)
         var terceiraOpcao = sugestoes.ElementAt(2);
@@ -128,12 +121,11 @@ public sealed class BuscaDesafioTest
         var urlResultados = _driver.Url;
 
         // 2. Clicar no primeiro link orgânico relevante
+        // Seletor confirmado via inspeção: a[data-testid='result-title-a']
+        // O DuckDuckGo renderiza via JS; o wait explícito aguarda ao menos um link visível
         var primeiroLink = _wait.Until(d =>
         {
-            var links = d.FindElements(By.CssSelector(
-                "article[data-testid='result'] a[data-testid='result-title-a'], " +
-                "h2 a[data-testid='result-title-a'], " +
-                ".result__title a"));
+            var links = d.FindElements(By.CssSelector("a[data-testid='result-title-a']"));
             return links.FirstOrDefault(l => l.Displayed && !string.IsNullOrWhiteSpace(l.GetAttribute("href")));
         });
 
