@@ -111,4 +111,54 @@ public sealed class BuscaDesafioTest
             $"Esperado que a URL de resultados contivesse 'q='. URL atual: '{_driver.Url}'"
         );
     }
+
+    // Exercício 3: Navegação por Histórico e Botões de Ação
+    [TestMethod]
+    public void Exercicio3_HistoricoNavegacao_VoltarEAvancaRestauramPaginasCorretamente()
+    {
+        // 1. Realizar uma busca inicial por "Automated Testing"
+        _driver.Navigate().GoToUrl("https://duckduckgo.com");
+
+        var campoBusca = _wait.Until(d => d.FindElement(By.Name("q")));
+        campoBusca.SendKeys("Automated Testing");
+        campoBusca.SendKeys(Keys.Enter);
+
+        // Aguardar a página de resultados carregar
+        _wait.Until(d => d.Url.Contains("q=", StringComparison.OrdinalIgnoreCase));
+        var urlResultados = _driver.Url;
+
+        // 2. Clicar no primeiro link orgânico relevante
+        var primeiroLink = _wait.Until(d =>
+        {
+            var links = d.FindElements(By.CssSelector(
+                "article[data-testid='result'] a[data-testid='result-title-a'], " +
+                "h2 a[data-testid='result-title-a'], " +
+                ".result__title a"));
+            return links.FirstOrDefault(l => l.Displayed && !string.IsNullOrWhiteSpace(l.GetAttribute("href")));
+        });
+
+        Assert.IsNotNull(primeiroLink, "Nenhum link de resultado orgânico encontrado na página de resultados.");
+
+        primeiroLink!.Click();
+
+        // 3. Validar que a página externa foi carregada (URL mudou)
+        _wait.Until(d => !d.Url.Equals(urlResultados, StringComparison.OrdinalIgnoreCase));
+        var urlExterna = _driver.Url;
+
+        Assert.AreNotEqual(
+            urlResultados, urlExterna,
+            "Esperado que a URL mudasse após clicar no link externo."
+        );
+
+        // 4. Voltar à página de resultados de busca
+        _driver.Navigate().Back();
+
+        // 5. Validar que a página de resultados foi restaurada
+        _wait.Until(d => d.Url.Contains("q=", StringComparison.OrdinalIgnoreCase));
+
+        Assert.IsTrue(
+            _driver.Url.Contains("q=", StringComparison.OrdinalIgnoreCase),
+            $"Esperado retornar à página de resultados com 'q=' na URL. URL atual: '{_driver.Url}'"
+        );
+    }
 }
